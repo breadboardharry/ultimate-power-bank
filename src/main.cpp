@@ -23,30 +23,46 @@
 CRGB leds[NUM_LEDS];
 
 BAT battery(VBAT_PIN, 3000, 470);
-// ADCPlus bat(VBAT_PIN);
+
+void testProgram();
 
 void setup() {
-  Serial.begin(9600);
-  Serial.println("Setup");
   pinMode(EN_OUT1_PIN, OUTPUT);
   pinMode(EN_OUT2_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);
   pinMode(DIN_PIN, OUTPUT);
+
+  delay(100);
+
+  Serial.begin(9600);
+  Serial.println("Setup");
+  
   FastLED.addLeds<LED_TYPE, DIN_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness( BRIGHTNESS );
   fill_solid( leds, NUM_LEDS, CRGB::Black);
   FastLED.show();
+  
+  delay(100);
+
+  fill_solid( leds, NUM_LEDS, CRGB::Red);
+  FastLED.show();
+  delay(200);
+
+  fill_solid( leds, NUM_LEDS, CRGB::Black);
+  FastLED.show();
+
+  esp_deep_sleep_enable_gpio_wakeup(0x20, ESP_GPIO_WAKEUP_GPIO_LOW);
+  Serial.println("Going to sleep now");
+  esp_deep_sleep_start();
+  Serial.println("Should not be printed");
 }
 
 void loop() {
-  // Serial.println(analogRead(VBAT_PIN));
-  // float v = bat.getVoltage();
-  // float i = v/470;
-  // float vb = (470+3000)*i;
-  // Serial.println(v);
-  // Serial.println(i);
-  // Serial.println(vb);
+  testProgram();
+}
+
+void testProgram() {
   Serial.println(battery.getVoltage());
 
   digitalWrite(LED_PIN, LOW);

@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <FastLED.h>
+#include "battery.h"
 
 #define VBAT_PIN 0
 #define EN_OUT1_PIN 4
@@ -21,6 +22,9 @@
 
 CRGB leds[NUM_LEDS];
 
+BAT battery(VBAT_PIN, 3000, 470);
+// ADCPlus bat(VBAT_PIN);
+
 void setup() {
   Serial.begin(9600);
   Serial.println("Setup");
@@ -36,8 +40,14 @@ void setup() {
 }
 
 void loop() {
-  Serial.println("Loop");
-  Serial.println(analogRead(VBAT_PIN));
+  // Serial.println(analogRead(VBAT_PIN));
+  // float v = bat.getVoltage();
+  // float i = v/470;
+  // float vb = (470+3000)*i;
+  // Serial.println(v);
+  // Serial.println(i);
+  // Serial.println(vb);
+  Serial.println(battery.getVoltage());
 
   digitalWrite(LED_PIN, LOW);
 
@@ -67,5 +77,5 @@ void loop() {
     digitalWrite(EN_OUT2_PIN, LOW);
   }
 
-  delay(250);
+  delay(300);
 }

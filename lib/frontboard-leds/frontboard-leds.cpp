@@ -48,7 +48,7 @@ void FRONTBOARD_LEDS::batteryAlert(uint8_t reps)
     {
         leds[0] = i%2==0 ? LOW_CHARGE_COLOR : CRGB::Black;
         show();
-        delay(350);
+        delay(300);
     }
 }
 

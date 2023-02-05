@@ -5,7 +5,7 @@
 #define VBAT_PIN 0
 #define EN_OUT1_PIN 4
 #define EN_OUT2_PIN 1
-#define SW_PIN 5
+#define PB_PIN 5
 #define DIN_PIN 6
 #define LED_PIN 7
 #define SCL_PIN 18
@@ -20,13 +20,14 @@
 
 #define SW !digitalRead(SW_PIN)
 
-CRGB leds[NUM_LEDS];
+FRONTBOARD_PB* pb;
 
 BAT battery(VBAT_PIN, 3000, 470);
 
 void testProgram();
 
 void setup() {
+  pb = new FRONTBOARD_PB(PB_PIN);
   pinMode(EN_OUT1_PIN, OUTPUT);
   pinMode(EN_OUT2_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
@@ -59,6 +60,9 @@ void setup() {
 }
 
 void loop() {
+  while(true) {
+    digitalWrite(LED_PIN, pb->isPressed());
+  }
   testProgram();
 }
 

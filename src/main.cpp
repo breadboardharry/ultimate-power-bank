@@ -21,8 +21,6 @@ BAT* battery;
 FRONTBOARD_LEDS* leds;
 FRONTBOARD_PB* pb;
 
-FRONTBOARD_PB* pb;
-
 void testProgram();
 
 void setup() {

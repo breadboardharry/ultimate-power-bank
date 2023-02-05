@@ -5,6 +5,7 @@
 #include "frontboard-leds.h"
 #include "frontboard-pb.h"
 #include "debug.h"
+#include "outputs.h"
 
 #define VBAT_PIN 0
 #define EN_OUT1_PIN 4
@@ -26,44 +27,18 @@
 #define SAFETY_SLEEP_TIMEOUT 2 * HOUR_CONSTANT
 #define SLEEP_TIMEOUT 30 * SECOND_CONSTANT
 
-#define CUTOFF_VOLTAGE 3.2
+#define CUTOFF_VOLTAGE 3.15
+#define STOP_VOLTAGE 3.2
 
 BAT *battery;
 FRONTBOARD_LEDS *leds;
 FRONTBOARD_PB *pb;
+OUTPUTS *outputs;
 
 void turnOff();
 void sleep();
-void handleOutputs();
 
-bool en_out1 = false, en_out2 = false;
 float vbat = 0;
-
-void setup()
-{
-  battery = new BAT(VBAT_PIN, 5, 3000, 470);
-  leds = new FRONTBOARD_LEDS(DIN_PIN);
-  pb = new FRONTBOARD_PB(PB_PIN);
-
-  pinMode(EN_OUT1_PIN, OUTPUT);
-  pinMode(EN_OUT2_PIN, OUTPUT);
-  digitalWrite(EN_OUT1_PIN, en_out1);
-  digitalWrite(EN_OUT2_PIN, en_out2);
-  pinMode(LED_PIN, OUTPUT);
-  led_on;
-
-  vbat = battery->getCellVoltage();
-  if(vbat <= CUTOFF_VOLTAGE)
-  {
-    leds->batteryAlert(3);
-    turnOff();
-  }
-  leds->displayBatteryLevel(vbat)->show();
-
-  while (pb->isPressed());
-}
-
-bool pb_long_press_en = true;
 uint32_t sleep_millis = 0;
 uint32_t leds_millis = 0;
 uint32_t pb_millis = 0;
@@ -71,53 +46,65 @@ bool show_outputs = false;
 uint32_t outputs_millis = 0;
 uint8_t bat_cycle = 0;
 
-void loop()
-{
-  if (millis() >= SAFETY_SLEEP_TIMEOUT)
+void setup() {
+  battery = new BAT(VBAT_PIN, 5, 3000, 470);
+
+  vbat = battery->getCellVoltage();
+  if (vbat <= CUTOFF_VOLTAGE) turnOff();
+
+  leds = new FRONTBOARD_LEDS(DIN_PIN);
+
+  if (vbat <= STOP_VOLTAGE)
   {
+    leds->batteryAlert(3);
     turnOff();
   }
 
+  pb = new FRONTBOARD_PB(PB_PIN);
+  outputs = new OUTPUTS(EN_OUT1_PIN, EN_OUT2_PIN);
+
+  leds->displayBatteryLevel(vbat)->show();
+
+  while (pb->isPressed());
+}
+
+void loop() {
+  // SAFETY SHUTDOWN TIMEOUT
+  if (millis() >= SAFETY_SLEEP_TIMEOUT) turnOff();
+
+  // OUTPUT MENU TIMER
   if (show_outputs && millis() - outputs_millis >= 4000)
   {
     show_outputs = false;
     sleep_millis = millis();
   }
 
-  if (!en_out1 && !en_out2 && millis() - sleep_millis >= SLEEP_TIMEOUT)
-  {
-    turnOff();
-  }
+  // NO ACTION SHUTDOWN TIMER
+  if (!outputs->en_out1 && !outputs->en_out2 && millis() - sleep_millis >= SLEEP_TIMEOUT) turnOff();
 
+  // BATTERY LEVEL TIMER
   if (!show_outputs && millis() - leds_millis >= 1000)
   {
-    if (!bat_cycle)
-      vbat = battery->getCellVoltage();
-    if (vbat <= CUTOFF_VOLTAGE)
-      turnOff();
+    if (!bat_cycle) vbat = battery->getCellVoltage();
+    if (vbat <= STOP_VOLTAGE) turnOff();
     leds->displayBatteryLevel(vbat)->show();
     bat_cycle = (bat_cycle + 1) % 5;
     leds_millis = millis();
   }
 
+  // PUSHBUTTON
   if (pb->isPressed())
   {
-    if (!pb_millis)
-      pb_millis = millis();
-    else
-    {
-      if (millis() - pb_millis >= 3000)
-      {
-        turnOff();
-      }
-    }
+    if (!pb_millis) pb_millis = millis();
+    else if (millis() - pb_millis >= 3000) turnOff();
   }
   else if (pb_millis)
   {
     uint32_t pb_delta_millis = millis() - pb_millis;
     if (pb_delta_millis <= 2000)
     {
-      handleOutputs();
+      outputs->handle(show_outputs);
+      leds->displayOutputs(outputs->en_out1, outputs->en_out2)->show();
       show_outputs = true;
       outputs_millis = millis();
       sleep_millis = millis();
@@ -126,33 +113,12 @@ void loop()
   }
 }
 
-void handleOutputs()
-{
-  static uint8_t cycle = 0;
-
-  if (show_outputs)
-  {
-    cycle = (cycle + 1) % 4;
-
-    en_out1 = cycle == 2 || cycle == 3;
-    en_out2 = cycle == 1 || cycle == 3;
-
-    digitalWrite(EN_OUT1_PIN, en_out1);
-    digitalWrite(EN_OUT2_PIN, en_out2);
-  }
-
-  leds->displayOutputs(en_out1, en_out2)->show();
-}
-
-void turnOff()
-{
+void turnOff() {
   leds->clear()->show();
   digitalWrite(EN_OUT1_PIN, LOW);
   digitalWrite(EN_OUT2_PIN, LOW);
-  led_off;
 
-  while (pb->isPressed())
-    ;
+  while (pb->isPressed());
 
   sleep();
 }

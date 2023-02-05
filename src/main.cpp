@@ -35,7 +35,7 @@ OUTPUTS *outputs;
 void turnOff();
 void sleep();
 
-float vbat = 0;
+float vcell = 0;
 uint32_t sleep_millis = 0;
 uint32_t leds_millis = 0;
 uint32_t pb_millis = 0;
@@ -46,12 +46,12 @@ uint8_t bat_cycle = 0;
 void setup() {
   battery = new BAT(VBAT_PIN, 5, 3000, 470);
 
-  vbat = battery->getCellVoltage();
-  if (vbat <= CUTOFF_VOLTAGE) turnOff();
+  vcell = battery->getCellVoltage();
+  if (vcell <= CUTOFF_VOLTAGE) turnOff();
 
   leds = new FRONTBOARD_LEDS();
 
-  if (vbat <= STOP_VOLTAGE)
+  if (vcell <= STOP_VOLTAGE)
   {
     leds->batteryAlert(3);
     turnOff();
@@ -60,7 +60,7 @@ void setup() {
   pb = new FRONTBOARD_PB(PB_PIN);
   outputs = new OUTPUTS(EN_OUT1_PIN, EN_OUT2_PIN);
 
-  leds->displayBatteryLevel(vbat)->show();
+  leds->displayBatteryLevel(vcell)->show();
 
   while (pb->isPressed());
 }
@@ -82,9 +82,9 @@ void loop() {
   // BATTERY LEVEL TIMER
   if (!show_outputs && millis() - leds_millis >= 1000)
   {
-    if (!bat_cycle) vbat = battery->getCellVoltage();
-    if (vbat <= STOP_VOLTAGE) turnOff();
-    leds->displayBatteryLevel(vbat)->show();
+    if (!bat_cycle) vcell = battery->getCellVoltage();
+    if (vcell <= STOP_VOLTAGE) turnOff();
+    leds->displayBatteryLevel(vcell)->show();
     bat_cycle = (bat_cycle + 1) % 5;
     leds_millis = millis();
   }

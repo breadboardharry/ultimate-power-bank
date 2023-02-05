@@ -2,9 +2,8 @@
 
 OUTPUTS::OUTPUTS(uint8_t _out1_pin, uint8_t _out2_pin): out1_pin(_out1_pin), out2_pin(_out2_pin) {
     pinMode(out1_pin, OUTPUT);
-    digitalWrite(out1_pin, LOW);
     pinMode(out2_pin, OUTPUT);
-    digitalWrite(out2_pin, LOW);
+    disable();
 }
 
 void OUTPUTS::handle(bool show) {
@@ -21,3 +20,9 @@ void OUTPUTS::handle(bool show) {
     digitalWrite(out2_pin, en_out2);
   }
 }
+
+void OUTPUTS::disable() {
+    digitalWrite(out1_pin, LOW);
+    digitalWrite(out2_pin, LOW);
+}
+

@@ -1,9 +1,10 @@
 #include "frontboard-leds.h"
 
-FRONTBOARD_LEDS::FRONTBOARD_LEDS(uint8_t _pin) : pin(_pin)
+FRONTBOARD_LEDS::FRONTBOARD_LEDS()
 {
+    clear();
     FastLED.addLeds<LED_TYPE, DIN_PIN, COLOR_ORDER>(leds, NUM_LEDS);
-    clear()->show();
+    show();
 }
 
 FRONTBOARD_LEDS *FRONTBOARD_LEDS::fill(CRGB color)
@@ -17,18 +18,13 @@ FRONTBOARD_LEDS *FRONTBOARD_LEDS::displayBatteryLevel(float vcell)
     static bool blink = false;
     clear()->show();
 
-    if (vcell >= 3.9)
-        fill_solid(leds, 4, CRGB(0, 32, 0));
-    else if (vcell >= 3.7)
-        fill_solid(leds, 3, CRGB(11, 21, 0));
-    else if (vcell >= 3.45)
-        fill_solid(leds, 2, CRGB(20, 12, 0));
-    else if (vcell >= 3.3)
-        fill_solid(leds, 1, CRGB(31, 1, 0));
+    if (vcell >= 3.9) fill_solid(leds, 4, FULL_CHARGE_COLOR);
+    else if (vcell >= 3.7) fill_solid(leds, 3, NORMAL_CHARGE_COLOR);
+    else if (vcell >= 3.45) fill_solid(leds, 2, MEDIUM_CHARGE_COLOR);
+    else if (vcell >= 3.3) fill_solid(leds, 1, LOW_CHARGE_COLOR);
     else
     {
-        if (!blink)
-            fill_solid(leds, 1, CRGB(31, 1, 0));
+        if (!blink) fill_solid(leds, 1, LOW_CHARGE_COLOR);
         blink = !blink;
     }
 
@@ -38,11 +34,10 @@ FRONTBOARD_LEDS *FRONTBOARD_LEDS::displayBatteryLevel(float vcell)
 FRONTBOARD_LEDS *FRONTBOARD_LEDS::displayOutputs(bool out1, bool out2)
 {
     clear()->show();
-    CRGB color = CRGB(8, 12, 10);
-    leds[0] = out2 ? color : CRGB::Black;
-    leds[1] = out1 ? color : CRGB::Black;
-    leds[2] = out1 ? color : CRGB::Black;
-    leds[3] = color;
+    leds[0] = out2 ? OUTPUT_COLOR : CRGB::Black;
+    leds[1] = out1 ? OUTPUT_COLOR : CRGB::Black;
+    leds[2] = out1 ? OUTPUT_COLOR : CRGB::Black;
+    leds[3] = OUTPUT_COLOR;
     return this;
 }
 
@@ -51,7 +46,7 @@ void FRONTBOARD_LEDS::batteryAlert(uint8_t reps)
     clear()->show();
     for (uint8_t i = 0; i < 2*reps; i++)
     {
-        leds[0] = i%2==0 ? CRGB(31, 1, 0) : CRGB::Black;
+        leds[0] = i%2==0 ? LOW_CHARGE_COLOR : CRGB::Black;
         show();
         delay(350);
     }

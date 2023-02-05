@@ -12,6 +12,7 @@ class OUTPUTS
     public:
         OUTPUTS(uint8_t _out1_pin, uint8_t _out2_pin);
         void handle(bool show);
+        void disable();
 
         bool en_out1 = false, en_out2 = false;
 };

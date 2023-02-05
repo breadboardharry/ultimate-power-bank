@@ -27,9 +27,6 @@
 #define SAFETY_SLEEP_TIMEOUT 2 * HOUR_CONSTANT
 #define SLEEP_TIMEOUT 30 * SECOND_CONSTANT
 
-#define CUTOFF_VOLTAGE 3.15
-#define STOP_VOLTAGE 3.2
-
 BAT *battery;
 FRONTBOARD_LEDS *leds;
 FRONTBOARD_PB *pb;
@@ -52,7 +49,7 @@ void setup() {
   vbat = battery->getCellVoltage();
   if (vbat <= CUTOFF_VOLTAGE) turnOff();
 
-  leds = new FRONTBOARD_LEDS(DIN_PIN);
+  leds = new FRONTBOARD_LEDS();
 
   if (vbat <= STOP_VOLTAGE)
   {
@@ -96,37 +93,40 @@ void loop() {
   if (pb->isPressed())
   {
     if (!pb_millis) pb_millis = millis();
+    // SHUTDOWN ON LONG PRESS 
     else if (millis() - pb_millis >= 3000) turnOff();
   }
+  // WHEN RELEASED
   else if (pb_millis)
   {
+    // CALCULATE PRESS TIME
     uint32_t pb_delta_millis = millis() - pb_millis;
+    // SHORT PRESS
     if (pb_delta_millis <= 2000)
     {
+      // CONFIGURE OUTPUTS
       outputs->handle(show_outputs);
       leds->displayOutputs(outputs->en_out1, outputs->en_out2)->show();
       show_outputs = true;
       outputs_millis = millis();
       sleep_millis = millis();
     }
+    // RESET
     pb_millis = 0;
   }
 }
 
 void turnOff() {
   leds->clear()->show();
-  digitalWrite(EN_OUT1_PIN, LOW);
-  digitalWrite(EN_OUT2_PIN, LOW);
+  outputs->disable();
 
   while (pb->isPressed());
 
   sleep();
 }
 
-void sleep()
-{
+void sleep() {
   esp_deep_sleep_enable_gpio_wakeup(BP_MASK, ESP_GPIO_WAKEUP_GPIO_LOW);
-  debug_println("Going to sleep now");
   esp_deep_sleep_start();
   debug_println("Should not be printed");
 }

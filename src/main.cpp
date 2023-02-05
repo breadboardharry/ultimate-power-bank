@@ -31,10 +31,10 @@ FRONTBOARD_LEDS *leds;
 FRONTBOARD_PB *pb;
 OUTPUTS *outputs;
 
-void turnOff();
+void turnOff(bool cutoff = false);
 void sleep();
 
-float vcell = 0;
+float vcell = 0, prev_vcell = 0;
 uint32_t sleep_millis = 0;
 uint32_t leds_millis = 0;
 uint32_t pb_millis = 0;
@@ -46,18 +46,18 @@ void setup() {
   battery = new BAT(VBAT_PIN, 5, 3000, 470);
 
   vcell = battery->getCellVoltage();
-  if (vcell <= CUTOFF_VOLTAGE) turnOff();
+
+  if (vcell <= CUTOFF_VOLTAGE) turnOff(true);
 
   leds = new FRONTBOARD_LEDS();
+  pb = new FRONTBOARD_PB(PB_PIN);
+  outputs = new OUTPUTS(EN_OUT1_PIN, EN_OUT2_PIN);
 
   if (vcell <= STOP_VOLTAGE)
   {
     leds->batteryAlert(3);
     turnOff();
   }
-
-  pb = new FRONTBOARD_PB(PB_PIN);
-  outputs = new OUTPUTS(EN_OUT1_PIN, EN_OUT2_PIN);
 
   leds->displayBatteryLevel(vcell)->show();
 
@@ -73,6 +73,7 @@ void loop() {
   {
     show_outputs = false;
     sleep_millis = millis();
+    prev_vcell = 0;
   }
 
   // NO ACTION SHUTDOWN TIMER
@@ -83,8 +84,11 @@ void loop() {
   {
     if (!bat_cycle) vcell = battery->getCellVoltage();
     if (vcell <= STOP_VOLTAGE) turnOff();
-    leds->displayBatteryLevel(vcell)->show();
-    bat_cycle = (bat_cycle + 1) % 5;
+    if (vcell <= 3.3 || vcell < prev_vcell - 0.05 || vcell > prev_vcell + 0.05) {
+      leds->displayBatteryLevel(vcell)->show();
+      prev_vcell = vcell;
+    }
+    bat_cycle = (bat_cycle + 1) % 10;
     leds_millis = millis();
   }
 
@@ -115,12 +119,12 @@ void loop() {
   }
 }
 
-void turnOff() {
-  leds->clear()->show();
-  outputs->disable();
-
-  while (pb->isPressed());
-
+void turnOff(bool cutoff) {
+  if (!cutoff) {
+    leds->clear()->show();
+    outputs->disable();
+    while (pb->isPressed());
+  }
   sleep();
 }
 

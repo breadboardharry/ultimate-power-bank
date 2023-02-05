@@ -1,71 +1,134 @@
 #include <Arduino.h>
 #include <FastLED.h>
+#include <Wire.h>
+#include "battery.h"
+#include "frontboard-leds.h"
+#include "frontboard-pb.h"
+#include "outputs.h"
 
 #define VBAT_PIN 0
 #define EN_OUT1_PIN 4
 #define EN_OUT2_PIN 1
-#define SW_PIN 5
+#define PB_PIN 5
 #define DIN_PIN 6
 #define LED_PIN 7
 #define SCL_PIN 18
 #define SDA_PIN 19
 #define INT_PIN 3
 
-#define NUM_LEDS 4
-#define LED_TYPE SK6812
-#define BRIGHTNESS 20
-#define UPDATES_PER_SECOND 100
-#define COLOR_ORDER GRB
+#define BP_MASK 0x20
 
-#define SW !digitalRead(SW_PIN)
+#define led_on digitalWrite(LED_PIN, LOW)
+#define led_off digitalWrite(LED_PIN, HIGH)
 
-CRGB leds[NUM_LEDS];
+#define SECOND_CONSTANT 1e3
+#define HOUR_CONSTANT 3.6e6
+#define SAFETY_SLEEP_TIMEOUT 2 * HOUR_CONSTANT
+#define SLEEP_TIMEOUT 30 * SECOND_CONSTANT
+
+BAT *battery;
+FRONTBOARD_LEDS *leds;
+FRONTBOARD_PB *pb;
+OUTPUTS *outputs;
+
+void turnOff(bool cutoff = false);
+void sleep();
+
+float vcell = 0, prev_vcell = 0;
+uint32_t sleep_millis = 0;
+uint32_t leds_millis = 0;
+uint32_t pb_millis = 0;
+bool show_outputs = false;
+uint32_t outputs_millis = 0;
+uint8_t bat_cycle = 0;
 
 void setup() {
-  Serial.begin(9600);
-  Serial.println("Setup");
-  pinMode(EN_OUT1_PIN, OUTPUT);
-  pinMode(EN_OUT2_PIN, OUTPUT);
-  pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH);
-  pinMode(DIN_PIN, OUTPUT);
-  FastLED.addLeds<LED_TYPE, DIN_PIN, COLOR_ORDER>(leds, NUM_LEDS);
-  FastLED.setBrightness( BRIGHTNESS );
-  fill_solid( leds, NUM_LEDS, CRGB::Black);
-  FastLED.show();
+  battery = new BAT(VBAT_PIN, 5, 3000, 470);
+
+  vcell = battery->getCellVoltage();
+
+  if (vcell <= CUTOFF_VOLTAGE) turnOff(true);
+
+  leds = new FRONTBOARD_LEDS();
+  pb = new FRONTBOARD_PB(PB_PIN);
+  outputs = new OUTPUTS(EN_OUT1_PIN, EN_OUT2_PIN);
+
+  if (vcell <= STOP_VOLTAGE)
+  {
+    leds->batteryAlert(3);
+    turnOff();
+  }
+
+  leds->displayBatteryLevel(vcell)->show();
+
+  while (pb->isPressed());
 }
 
 void loop() {
-  Serial.println("Loop");
-  Serial.println(analogRead(VBAT_PIN));
+  // SAFETY SHUTDOWN TIMEOUT
+  if (millis() >= SAFETY_SLEEP_TIMEOUT) turnOff();
 
-  digitalWrite(LED_PIN, LOW);
-
-  if(SW) {
-    digitalWrite(LED_PIN, HIGH);
-    fill_solid( leds, NUM_LEDS, CRGB::Red);
-    FastLED.show();
-    delay(200);
-
-    fill_solid( leds, NUM_LEDS, CRGB::Green);
-    FastLED.show();
-    delay(200);
-
-    fill_solid( leds, NUM_LEDS, CRGB::Blue);
-    FastLED.show();
-    delay(200);
-
-    fill_solid( leds, NUM_LEDS, CRGB::Black);
-    FastLED.show();
-
-    digitalWrite(EN_OUT1_PIN, HIGH);
-    delay(1000);
-    digitalWrite(EN_OUT2_PIN, HIGH);
-    delay(5000);
-    digitalWrite(EN_OUT1_PIN, LOW);
-    delay(1000);
-    digitalWrite(EN_OUT2_PIN, LOW);
+  // OUTPUT MENU TIMER
+  if (show_outputs && millis() - outputs_millis >= 4000)
+  {
+    show_outputs = false;
+    sleep_millis = millis();
+    prev_vcell = 0;
   }
 
-  delay(250);
+  // NO ACTION SHUTDOWN TIMER
+  if (!outputs->en_out1 && !outputs->en_out2 && millis() - sleep_millis >= SLEEP_TIMEOUT) turnOff();
+
+  // BATTERY LEVEL TIMER
+  if (!show_outputs && millis() - leds_millis >= 1000)
+  {
+    if (!bat_cycle) vcell = battery->getCellVoltage();
+    if (vcell <= STOP_VOLTAGE) turnOff();
+    if (vcell <= 3.3 || vcell < prev_vcell - 0.05 || vcell > prev_vcell + 0.05) {
+      leds->displayBatteryLevel(vcell)->show();
+      prev_vcell = vcell;
+    }
+    bat_cycle = (bat_cycle + 1) % 10;
+    leds_millis = millis();
+  }
+
+  // PUSHBUTTON
+  if (pb->isPressed())
+  {
+    if (!pb_millis) pb_millis = millis();
+    // SHUTDOWN ON LONG PRESS 
+    else if (millis() - pb_millis >= 3000) turnOff();
+  }
+  // WHEN RELEASED
+  else if (pb_millis)
+  {
+    // CALCULATE PRESS TIME
+    uint32_t pb_delta_millis = millis() - pb_millis;
+    // SHORT PRESS
+    if (pb_delta_millis <= 2000)
+    {
+      // CONFIGURE OUTPUTS
+      outputs->handle(show_outputs);
+      leds->displayOutputs(outputs->en_out1, outputs->en_out2)->show();
+      show_outputs = true;
+      outputs_millis = millis();
+      sleep_millis = millis();
+    }
+    // RESET
+    pb_millis = 0;
+  }
+}
+
+void turnOff(bool cutoff) {
+  if (!cutoff) {
+    leds->clear()->show();
+    outputs->disable();
+    while (pb->isPressed());
+  }
+  sleep();
+}
+
+void sleep() {
+  esp_deep_sleep_enable_gpio_wakeup(BP_MASK, ESP_GPIO_WAKEUP_GPIO_LOW);
+  esp_deep_sleep_start();
 }

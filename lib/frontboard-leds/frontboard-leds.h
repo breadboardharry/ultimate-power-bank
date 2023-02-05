@@ -17,9 +17,11 @@ class FRONTBOARD_LEDS
 
     public:
         FRONTBOARD_LEDS(uint8_t _pin);
-        void fill(CRGB color);
-        void displayBatteryLevel(float vcell);
-        void clear();
+        FRONTBOARD_LEDS* fill(CRGB color);
+        void batteryAlert(uint8_t reps);
+        FRONTBOARD_LEDS* displayBatteryLevel(float vcell);
+        FRONTBOARD_LEDS* displayOutputs(bool out1, bool out2);
+        FRONTBOARD_LEDS* clear();
         void show();
 };
 

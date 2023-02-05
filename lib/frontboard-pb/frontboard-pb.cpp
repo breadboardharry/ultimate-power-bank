@@ -1,8 +1,7 @@
 #include "frontboard-pb.h"
 
+FRONTBOARD_PB::FRONTBOARD_PB(uint8_t _pin): pin(_pin) {};
+
 bool FRONTBOARD_PB::isPressed() {
-    debug_println("\nisPressed");
-    debug_println(this->pin);
-    debug_println(!digitalRead(pin));
     return !digitalRead(pin);
 }

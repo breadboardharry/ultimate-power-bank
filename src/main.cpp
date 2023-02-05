@@ -4,7 +4,6 @@
 #include "battery.h"
 #include "frontboard-leds.h"
 #include "frontboard-pb.h"
-#include "debug.h"
 #include "outputs.h"
 
 #define VBAT_PIN 0
@@ -128,5 +127,4 @@ void turnOff() {
 void sleep() {
   esp_deep_sleep_enable_gpio_wakeup(BP_MASK, ESP_GPIO_WAKEUP_GPIO_LOW);
   esp_deep_sleep_start();
-  debug_println("Should not be printed");
 }
